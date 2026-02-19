@@ -9,7 +9,8 @@ import (
 	"github.com/k1ngalph0x/atlas/services/identity-service/config"
 	"github.com/k1ngalph0x/atlas/services/identity-service/db"
 	"github.com/k1ngalph0x/atlas/services/identity-service/middleware"
-	"github.com/k1ngalph0x/atlas/services/identity-service/models"
+	identityModels "github.com/k1ngalph0x/atlas/services/identity-service/models"
+	sharedModels "github.com/k1ngalph0x/atlas/shared/models"
 )
 
 func main() {
@@ -23,17 +24,17 @@ func main() {
 		log.Fatalf("Error connecting to database: %v", err)
 	}
 
-	err = conn.AutoMigrate(&models.User{})
+	err = conn.AutoMigrate(&identityModels.User{})
 	if err != nil{
 		log.Fatalf("Failed to migrate user table: %v", err)
 	}
 
-	err = conn.AutoMigrate(&models.Organization{})
+	err = conn.AutoMigrate(&identityModels.Organization{})
 	if err != nil{
 		log.Fatalf("Failed to migrate organization table: %v", err)
 	}
 
-	err = conn.AutoMigrate(&models.Project{})
+	err = conn.AutoMigrate(&sharedModels.Project{})
 	if err != nil{
 		log.Fatalf("Failed to migrate Project table: %v", err)
 	}
@@ -44,6 +45,19 @@ func main() {
 
 	router := gin.Default()
 	router.Use(gin.Logger())
+
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	})
 
 	auth := router.Group("/auth")
 	{
@@ -56,6 +70,8 @@ func main() {
 	{
 		project.POST("/create-organization", projectHandler.CreateOrganization)
 		project.POST("/create-project", projectHandler.CreateProject)
+		project.GET("/organizations", projectHandler.GetOrganizations) 
+		project.GET("/projects", projectHandler.GetProjects)  
 	}
 
 	fmt.Println("Running Identity service")
